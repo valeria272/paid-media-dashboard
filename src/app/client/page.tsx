@@ -1,6 +1,7 @@
 'use client'
 
 import { useDashboardData } from '@/hooks/useDashboardData'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { LiveIndicator } from '@/components/layout/LiveIndicator'
 import { formatCLP, formatPercent, formatNumber, formatVariation } from '@/lib/format/currency'
 import { SpendChart } from '@/components/charts/SpendChart'
@@ -8,6 +9,7 @@ import { PLATFORM_LABELS } from '@/config/platforms'
 
 export default function ClientDashboard() {
   const { data, isLoading, lastUpdated } = useDashboardData()
+  const { web, webVariations, conversionPages } = useAnalytics()
 
   if (isLoading) {
     return (
@@ -154,6 +156,35 @@ export default function ClientDashboard() {
           </div>
         </div>
 
+        {/* Web Analytics */}
+        {web && (
+          <div className="bg-white rounded-xl p-6 border border-gray-100 mb-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Sitio Web — Visitas y Conversiones</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+              <WebBox label="Sesiones" value={formatNumber(web.sessions)} variation={webVariations?.sessions} />
+              <WebBox label="Usuarios" value={formatNumber(web.users)} variation={webVariations?.users} />
+              <WebBox label="Pageviews" value={formatNumber(web.pageviews)} variation={webVariations?.pageviews} />
+              <WebBox label="Conversiones" value={String(web.conversions)} variation={webVariations?.conversions} />
+              <WebBox label="Bounce Rate" value={formatPercent(web.bounceRate * 100, 1)} variation={webVariations?.bounceRate} inverted />
+            </div>
+            {conversionPages.length > 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 font-medium mb-2">Forms enviados (pagina /gracias)</p>
+                {conversionPages.map((p: any) => (
+                  <div key={p.page} className="flex justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-600">{p.page}</span>
+                    <div className="text-right">
+                      <span className="text-gray-900 font-medium">{p.sessions} visitas</span>
+                      <span className="text-gray-400 mx-2">|</span>
+                      <span className="text-indigo-600 font-medium">{p.conversions} conversiones</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Recap mensual */}
         {data && (
           <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100 mb-6">
@@ -185,6 +216,25 @@ export default function ClientDashboard() {
           Grupo CopyLab — Datos actualizados automaticamente
         </div>
       </main>
+    </div>
+  )
+}
+
+function WebBox({ label, value, variation, inverted }: {
+  label: string; value: string; variation?: number | null; inverted?: boolean
+}) {
+  const hasVar = variation !== null && variation !== undefined
+  const isPositive = inverted ? variation! <= 0 : variation! >= 0
+
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-lg font-bold text-gray-900">{value}</p>
+      {hasVar && (
+        <p className={`text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          {variation! >= 0 ? '↑' : '↓'} {formatVariation(Math.abs(variation!))} vs mes ant.
+        </p>
+      )}
     </div>
   )
 }
