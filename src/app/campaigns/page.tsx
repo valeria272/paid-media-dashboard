@@ -47,8 +47,8 @@ export default function CampaignsPage() {
                     const pacing = campaign.budget > 0 ? (campaign.spend / campaign.budget) * 100 : 0
                     const pacingColor = pacing > 110 ? 'text-red-600' : pacing < 60 ? 'text-yellow-600' : 'text-green-600'
                     return (
-                      <tr key={campaign.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 font-medium text-gray-900">{campaign.name}</td>
+                      <tr key={campaign.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${campaign.status !== 'active' ? 'opacity-50' : ''}`}>
+                        <td className={`py-3 px-4 font-medium ${campaign.status === 'active' ? 'text-gray-900' : 'text-gray-400'}`}>{campaign.name}</td>
                         <td className="py-3 px-4 text-gray-600">{PLATFORM_LABELS[campaign.platform] || campaign.platform}</td>
                         <td className="py-3 px-4 text-center">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${

@@ -65,12 +65,14 @@ export async function fetchBudgets(): Promise<BudgetRow[]> {
 // ═══ Comparar gasto real vs presupuesto aprobado ═══
 
 export function detectBudgetAlerts(
-  campaigns: CampaignMetrics[],
+  activeCampaigns: CampaignMetrics[],
   budgets: BudgetRow[],
   currentDay: number,
-  daysInMonth: number
+  daysInMonth: number,
+  allCampaigns?: CampaignMetrics[]
 ): BudgetAlert[] {
   const alerts: BudgetAlert[] = []
+  const spendSource = allCampaigns || activeCampaigns
 
   for (const budget of budgets) {
     // Mapear canal del sheet a platform del sistema
@@ -80,8 +82,8 @@ export function detectBudgetAlerts(
     }
     const platform = platformMap[budget.channel.toLowerCase()] || ''
 
-    // Matchear: primero por nombre, si no por canal completo
-    const campaign = campaigns.find(c => {
+    // Matchear gasto real con TODAS las campañas (activas + pausadas)
+    const campaign = spendSource.find(c => {
       const budgetLower = budget.campaignName.toLowerCase()
       const campLower = c.name.toLowerCase()
       return campLower.includes(budgetLower.split('|')[0]?.trim() || '') ||
@@ -90,9 +92,12 @@ export function detectBudgetAlerts(
              budgetLower.includes(campLower.split('-')[0]?.trim() || '')
     })
 
-    // Si no matchea por nombre, sumar TODO el gasto de esa plataforma
+    // Si la campaña matcheada está pausada, no generar alertas
+    if (campaign && campaign.status !== 'active') continue
+
+    // Si no matchea por nombre, sumar gasto de campañas activas de esa plataforma
     const currentSpend = campaign?.spend ||
-      (platform ? campaigns.filter(c => c.platform === platform).reduce((sum, c) => sum + c.spend, 0) : 0)
+      (platform ? activeCampaigns.filter(c => c.platform === platform).reduce((sum, c) => sum + c.spend, 0) : 0)
     const percentUsed = budget.monthlyBudget > 0 ? (currentSpend / budget.monthlyBudget) * 100 : 0
 
     // Proyeccion lineal: si gasta X en N dias, cuanto gastara en el mes completo

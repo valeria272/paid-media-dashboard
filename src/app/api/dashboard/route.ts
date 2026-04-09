@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   const budgets = await fetchBudgets()
   const now = new Date()
   const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const budgetAlerts = detectBudgetAlerts(activeCampaigns, budgets, currentDays, daysInCurrentMonth)
+  const budgetAlerts = detectBudgetAlerts(activeCampaigns, budgets, currentDays, daysInCurrentMonth, currentCampaigns)
 
   const spendHistory = await generateDailySpend(currentStart, currentEnd)
 

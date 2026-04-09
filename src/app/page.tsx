@@ -211,8 +211,8 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {(data?.campaigns || []).map((c: any) => (
-                    <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 pr-4 font-medium text-gray-900">{c.name}</td>
+                    <tr key={c.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${c.status !== 'active' ? 'opacity-50' : ''}`}>
+                      <td className={`py-3 pr-4 font-medium ${c.status === 'active' ? 'text-gray-900' : 'text-gray-400'}`}>{c.name}</td>
                       <td className="py-3 px-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           c.platform === 'google' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
