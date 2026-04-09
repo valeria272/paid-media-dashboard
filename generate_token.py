@@ -1,8 +1,6 @@
 """
-Genera un Refresh Token con acceso a Google Ads + Google Analytics 4.
-Ejecutar UNA SOLA VEZ:  python generate_token.py
-
-Abre el navegador, pide permiso, e imprime el refresh token.
+Genera Refresh Token con acceso a Google Ads + Analytics + Sheets.
+Ejecutar: python3 generate_token.py
 """
 
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -12,11 +10,12 @@ CREDENTIALS_FILE = "/Users/Vale/Desktop/COPYLAB PROJECTS/ASISTENTE PERSONAL/cred
 SCOPES = [
     "https://www.googleapis.com/auth/adwords",
     "https://www.googleapis.com/auth/analytics.readonly",
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
 ]
 
 
 def main():
-    print("Abriendo navegador para autorizar Google Ads + Analytics...")
+    print("Abriendo navegador para autorizar Google Ads + Analytics + Sheets...")
     print("Inicia sesion con la cuenta que tiene acceso.\n")
 
     flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)

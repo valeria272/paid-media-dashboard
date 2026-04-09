@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchGoogleAds } from '@/lib/fetchers/googleAds'
 import { fetchMetaAds } from '@/lib/fetchers/metaAds'
 import { detectAlerts } from '@/lib/alerts/detectAlerts'
+import { fetchBudgets, detectBudgetAlerts } from '@/lib/fetchers/budgetSheet'
 import { buildSummary } from '@/lib/mock/dashboardMock'
 import { sendAlertBatchToSlack } from '@/lib/slack/sendAlert'
 import { getMonthRange, calcVariation } from '@/lib/dates'
@@ -65,19 +66,47 @@ export async function GET(request: NextRequest) {
   const previous = buildSummary(prevCampaigns)
   const alerts = detectAlerts(currentCampaigns, currentDays)
 
+  // Presupuestos aprobados desde Google Sheets
+  const budgets = await fetchBudgets()
+  const now = new Date()
+  const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const budgetAlerts = detectBudgetAlerts(currentCampaigns, budgets, currentDays, daysInCurrentMonth)
+
   const spendHistory = await generateDailySpend(currentStart, currentEnd)
 
-  const criticalAlerts = alerts.filter(a => a.severity === 'critical')
-  if (criticalAlerts.length > 0) {
-    sendAlertBatchToSlack(criticalAlerts).catch(err =>
-      console.error('[Slack] Error enviando alertas:', err)
-    )
+  // Combinar alertas de performance + presupuesto
+  const allCritical = [
+    ...alerts.filter(a => a.severity === 'critical'),
+    ...budgetAlerts.filter(a => a.severity === 'critical'),
+  ]
+  if (allCritical.length > 0) {
+    sendAlertBatchToSlack(allCritical.map(a => ({
+      id: '', severity: a.severity, platform: 'channel' in a ? (a as any).channel : '',
+      campaignName: 'campaignName' in a ? (a as any).campaignName : '',
+      message: a.message, metric: 'budget', currentValue: 0, expectedValue: 0,
+      detectedAt: new Date().toISOString(),
+    }))).catch(err => console.error('[Slack] Error:', err))
   }
 
   return NextResponse.json({
     ...current,
     campaigns: currentCampaigns,
     alerts,
+    budgetAlerts,
+    budgets: budgets.map(b => {
+      const platformMap: Record<string, string> = {
+        'meta ads': 'meta', 'facebook ads': 'meta',
+        'google ads': 'google', 'google': 'google',
+      }
+      const platform = platformMap[b.channel.toLowerCase()] || ''
+      const matchedCampaign = currentCampaigns.find(c =>
+        c.name.toLowerCase().includes(b.campaignName.toLowerCase().split('|')[0]?.trim() || '') ||
+        b.campaignName.toLowerCase().includes(c.name.toLowerCase().split('|')[0]?.trim() || '')
+      )
+      const spend = matchedCampaign?.spend ||
+        (platform ? currentCampaigns.filter(c => c.platform === platform).reduce((sum, c) => sum + c.spend, 0) : 0)
+      return { ...b, currentSpend: spend }
+    }),
     spendHistory,
     comparison: {
       period: {
