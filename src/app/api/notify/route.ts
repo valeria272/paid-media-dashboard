@@ -29,10 +29,12 @@ export async function POST(request: NextRequest) {
     fetchMetaAds(range.current.start, range.current.end),
   ])
 
-  const campaigns = [
+  const allCampaigns = [
     ...(googleResult.status === 'fulfilled' ? googleResult.value : []),
     ...(metaResult.status === 'fulfilled' ? metaResult.value : []),
-  ].filter(c => c.status === 'active' && (c.impressions > 0 || c.spend > 0))
+  ].filter(c => c.impressions > 0 || c.spend > 0)
+
+  const campaigns = allCampaigns.filter(c => c.status === 'active')
 
   // Errores de plataforma → notificar
   if (googleResult.status === 'rejected') {
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
   // 2. Alertas de presupuesto
   if (type === 'budget' || type === 'all') {
     const budgets = await fetchBudgets()
-    const budgetAlerts = detectBudgetAlerts(campaigns, budgets, currentDays, daysInMonth)
+    const budgetAlerts = detectBudgetAlerts(campaigns, budgets, currentDays, daysInMonth, allCampaigns)
     if (budgetAlerts.length > 0) {
       results.budget = await sendBudgetAlerts(budgetAlerts)
     }

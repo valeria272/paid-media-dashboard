@@ -1,73 +1,40 @@
 import { Alert, ApprovalRequest, DailyRecap } from '@/lib/types'
+import {
+  sendSlackMessage, slackHeader, slackSection, slackFields,
+  slackDivider, slackContext,
+} from './slackClient'
 
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
-const SLACK_CHANNEL = process.env.SLACK_CHANNEL || '#paid-media-alerts'
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://paid-media-dashboard-delta.vercel.app'
+const formatCLP = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
 
-// ═══ Enviar alertas críticas a Slack ═══
+// ═══ Enviar alertas criticas a Slack ═══
 
 export async function sendAlertToSlack(alert: Alert): Promise<boolean> {
-  if (!SLACK_WEBHOOK_URL) {
-    console.warn('[DEV] Slack sin configurar → alerta no enviada:', alert.message)
-    return false
-  }
-
   const severityEmoji: Record<string, string> = {
     critical: '🔴',
     warning: '🟡',
     opportunity: '🟢',
   }
 
-  const payload = {
-    channel: SLACK_CHANNEL,
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: `${severityEmoji[alert.severity]} Alerta ${alert.severity.toUpperCase()} — Paid Media`,
-        },
-      },
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*Plataforma:*\n${alert.platform}` },
-          { type: 'mrkdwn', text: `*Campaña:*\n${alert.campaignName}` },
-          { type: 'mrkdwn', text: `*Métrica:*\n${alert.metric}` },
-          { type: 'mrkdwn', text: `*Valor actual:*\n${alert.currentValue}` },
-        ],
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `📋 *Detalle:* ${alert.message}`,
-        },
-      },
-      {
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: `Detectado: ${new Date(alert.detectedAt).toLocaleString('es-CL')} | Dashboard: <${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}|Ver dashboard>`,
-          },
-        ],
-      },
-    ],
-  }
+  const blocks = [
+    slackHeader(`${severityEmoji[alert.severity]} Alerta ${alert.severity.toUpperCase()} — Paid Media`),
+    slackFields([
+      `*Plataforma:*\n${alert.platform}`,
+      `*Campana:*\n${alert.campaignName}`,
+      `*Metrica:*\n${alert.metric}`,
+      `*Valor actual:*\n${alert.currentValue}`,
+    ]),
+    slackSection(`📋 *Detalle:* ${alert.message}`),
+    slackContext(`Detectado: ${new Date(alert.detectedAt).toLocaleString('es-CL')} | <${DASHBOARD_URL}|Ver dashboard>`),
+  ]
 
-  const response = await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  return response.ok
+  return sendSlackMessage(blocks, `Alerta ${alert.severity}: ${alert.message}`)
 }
 
 // ═══ Enviar batch de alertas (resumen) ═══
 
 export async function sendAlertBatchToSlack(alerts: Alert[]): Promise<boolean> {
-  if (!SLACK_WEBHOOK_URL || alerts.length === 0) return false
+  if (alerts.length === 0) return false
 
   const critical = alerts.filter(a => a.severity === 'critical')
   const warning = alerts.filter(a => a.severity === 'warning')
@@ -75,7 +42,7 @@ export async function sendAlertBatchToSlack(alerts: Alert[]): Promise<boolean> {
 
   const lines: string[] = []
   if (critical.length > 0) {
-    lines.push(`🔴 *${critical.length} alertas críticas*`)
+    lines.push(`🔴 *${critical.length} alertas criticas*`)
     critical.forEach(a => lines.push(`  • ${a.platform} — ${a.campaignName}: ${a.message}`))
   }
   if (warning.length > 0) {
@@ -87,149 +54,61 @@ export async function sendAlertBatchToSlack(alerts: Alert[]): Promise<boolean> {
     opportunity.forEach(a => lines.push(`  • ${a.platform} — ${a.campaignName}: ${a.message}`))
   }
 
-  const payload = {
-    channel: SLACK_CHANNEL,
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: '📊 Resumen de Alertas — Paid Media' },
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: lines.join('\n') },
-      },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '📈 Ver Dashboard' },
-            url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-          },
-        ],
-      },
-    ],
-  }
+  const blocks = [
+    slackHeader('📊 Resumen de Alertas — Paid Media'),
+    slackSection(lines.join('\n')),
+    slackContext(`<${DASHBOARD_URL}|Ver dashboard> — ${new Date().toLocaleString('es-CL')}`),
+  ]
 
-  const response = await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  return response.ok
+  return sendSlackMessage(blocks, `${alerts.length} alertas de paid media`)
 }
 
-// ═══ Enviar solicitud de aprobación a Slack ═══
+// ═══ Enviar solicitud de aprobacion a Slack ═══
 
 export async function sendApprovalRequestToSlack(request: ApprovalRequest): Promise<boolean> {
-  if (!SLACK_WEBHOOK_URL) {
-    console.warn('[DEV] Slack sin configurar → aprobación no enviada:', request.description)
-    return false
-  }
+  const blocks = [
+    slackHeader('⏳ Solicitud de Aprobacion — Paid Media'),
+    slackFields([
+      `*Tipo:*\n${request.type}`,
+      `*Plataforma:*\n${request.platform}`,
+      `*Campana:*\n${request.campaignName}`,
+      `*Valor actual:*\n${request.currentValue}`,
+      `*Cambio propuesto:*\n${request.proposedValue}`,
+    ]),
+    slackSection(`📋 *Razon:* ${request.reason}\n💡 *Impacto esperado:* ${request.impact}`),
+    slackContext(`<${DASHBOARD_URL}/approvals?id=${request.id}|Ver en dashboard>`),
+  ]
 
-  const payload = {
-    channel: SLACK_CHANNEL,
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: '⏳ Solicitud de Aprobación — Paid Media' },
-      },
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*Tipo:*\n${request.type}` },
-          { type: 'mrkdwn', text: `*Plataforma:*\n${request.platform}` },
-          { type: 'mrkdwn', text: `*Campaña:*\n${request.campaignName}` },
-          { type: 'mrkdwn', text: `*Valor actual:*\n${request.currentValue}` },
-          { type: 'mrkdwn', text: `*Cambio propuesto:*\n${request.proposedValue}` },
-        ],
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: `📋 *Razón:* ${request.reason}\n💡 *Impacto esperado:* ${request.impact}` },
-      },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '✅ Aprobar' },
-            style: 'primary',
-            url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/approvals?id=${request.id}&action=approve`,
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '❌ Rechazar' },
-            style: 'danger',
-            url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/approvals?id=${request.id}&action=reject`,
-          },
-        ],
-      },
-    ],
-  }
-
-  const response = await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  return response.ok
+  return sendSlackMessage(blocks, `Aprobacion: ${request.description}`)
 }
 
 // ═══ Enviar recap diario a Slack ═══
 
 export async function sendRecapToSlack(recap: DailyRecap): Promise<boolean> {
-  if (!SLACK_WEBHOOK_URL) return false
-
-  const formatCLP = (n: number) => '$' + Math.round(n).toLocaleString('es-CL')
-
   const platformLines = Object.entries(recap.platformBreakdown)
     .map(([platform, data]) =>
       `  • *${platform}:* ${formatCLP(data.spend)} gastado | ${data.conversions} conv. | CPA ${formatCLP(data.cpa)}`
     )
     .join('\n')
 
-  const payload = {
-    channel: SLACK_CHANNEL,
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: `📊 Recap Diario — ${recap.date}` },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: [
-            `💰 *Gasto total:* ${formatCLP(recap.totalSpend)} de ${formatCLP(recap.totalBudget)} (${recap.pacingPercent.toFixed(0)}% pacing)`,
-            `🎯 *Conversiones:* ${recap.totalConversions} | CPA promedio: ${formatCLP(recap.avgCpa)}`,
-            `🏆 *Mejor campaña:* ${recap.topCampaign}`,
-            `⚠️ *Peor campaña:* ${recap.worstCampaign}`,
-            '',
-            '*Por plataforma:*',
-            platformLines,
-            '',
-            `🔴 ${recap.alertsSummary.critical} críticas | 🟡 ${recap.alertsSummary.warning} advertencias | 🟢 ${recap.alertsSummary.opportunity} oportunidades`,
-          ].join('\n'),
-        },
-      },
-      ...(recap.recommendations.length > 0 ? [{
-        type: 'section' as const,
-        text: {
-          type: 'mrkdwn' as const,
-          text: '💡 *Recomendaciones:*\n' + recap.recommendations.map(r => `  • ${r}`).join('\n'),
-        },
-      }] : []),
-    ],
-  }
+  const blocks = [
+    slackHeader(`📊 Recap Diario — ${recap.date}`),
+    slackSection([
+      `💰 *Gasto total:* ${formatCLP(recap.totalSpend)} de ${formatCLP(recap.totalBudget)} (${recap.pacingPercent.toFixed(0)}% pacing)`,
+      `🎯 *Conversiones:* ${recap.totalConversions} | CPA promedio: ${formatCLP(recap.avgCpa)}`,
+      `🏆 *Mejor campana:* ${recap.topCampaign}`,
+      `⚠️ *Peor campana:* ${recap.worstCampaign}`,
+      '',
+      '*Por plataforma:*',
+      platformLines,
+      '',
+      `🔴 ${recap.alertsSummary.critical} criticas | 🟡 ${recap.alertsSummary.warning} advertencias | 🟢 ${recap.alertsSummary.opportunity} oportunidades`,
+    ].join('\n')),
+    ...(recap.recommendations.length > 0 ? [
+      slackSection('💡 *Recomendaciones:*\n' + recap.recommendations.map(r => `  • ${r}`).join('\n')),
+    ] : []),
+    slackContext(`<${DASHBOARD_URL}|Ver dashboard> | <${DASHBOARD_URL}/client|Dashboard cliente>`),
+  ]
 
-  const response = await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  return response.ok
+  return sendSlackMessage(blocks, `Recap: ${formatCLP(recap.totalSpend)} invertidos, ${recap.totalConversions} conversiones`)
 }
