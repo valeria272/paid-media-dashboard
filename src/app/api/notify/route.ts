@@ -13,11 +13,24 @@ import {
   sendCampaignError,
 } from '@/lib/slack/notifications'
 
-// POST /api/notify — Dispara notificaciones a Slack
-// Body: { type: "alerts" | "budget" | "optimizations" | "recap" | "all" }
+// GET /api/notify — Cron (lunes, miércoles, viernes)
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const type = request.nextUrl.searchParams.get('type') || 'all'
+  return runNotify(type)
+}
+
+// POST /api/notify — Manual
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const type = body.type || 'all'
+  return runNotify(type)
+}
+
+async function runNotify(type: string) {
 
   const range = getMonthRange()
   const currentDays = range.current.days
@@ -90,5 +103,7 @@ export async function POST(request: NextRequest) {
     timestamp: new Date().toISOString(),
   })
 }
+
+// keep POST and GET as separate exports above
 
 export const dynamic = 'force-dynamic'
