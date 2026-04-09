@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
   const current = buildSummary(currentCampaigns)
   const previous = buildSummary(prevCampaigns)
-  const alerts = detectAlerts(currentCampaigns)
+  const alerts = detectAlerts(currentCampaigns, currentDays)
 
   const spendHistory = await generateDailySpend(currentStart, currentEnd)
 

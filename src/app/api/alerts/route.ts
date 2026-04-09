@@ -19,7 +19,8 @@ export async function GET() {
     c => c.status === 'active' && (c.impressions > 0 || c.spend > 0)
   )
 
-  const alerts = detectAlerts(campaigns)
+  const periodDays = new Date().getDate() // dias del mes actual
+  const alerts = detectAlerts(campaigns, periodDays)
 
   return NextResponse.json({
     alerts,
