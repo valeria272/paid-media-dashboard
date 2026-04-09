@@ -1,6 +1,8 @@
 import { CampaignMetrics } from '@/lib/types'
 import { MOCK_CAMPAIGNS } from '@/lib/mock/dashboardMock'
 
+import { CampaignStatus } from '@/lib/types'
+
 const microsToCLP = (micros: number): number => Math.round(micros / 1_000_000)
 
 export async function fetchGoogleAds(startDate?: string, endDate?: string): Promise<CampaignMetrics[]> {
@@ -47,10 +49,10 @@ export async function fetchGoogleAds(startDate?: string, endDate?: string): Prom
       ORDER BY metrics.cost_micros DESC
     `)
 
-    const statusMap: Record<string, string> = {
+    const statusMap: Record<string, CampaignStatus> = {
       ENABLED: 'active',
       PAUSED: 'paused',
-      REMOVED: 'removed',
+      REMOVED: 'ended',
     }
 
     return campaigns.map((row: any): CampaignMetrics => ({
