@@ -43,15 +43,21 @@ export async function fetchGoogleAds(startDate?: string, endDate?: string): Prom
         metrics.cost_per_conversion
       FROM campaign
       WHERE segments.date BETWEEN '${start}' AND '${end}'
-        AND campaign.status = 'ENABLED'
+        AND metrics.cost_micros > 0
       ORDER BY metrics.cost_micros DESC
     `)
+
+    const statusMap: Record<string, string> = {
+      ENABLED: 'active',
+      PAUSED: 'paused',
+      REMOVED: 'removed',
+    }
 
     return campaigns.map((row: any): CampaignMetrics => ({
       id: `g-${row.campaign.id}`,
       name: row.campaign.name,
       platform: 'google',
-      status: 'active',
+      status: statusMap[row.campaign.status] || 'paused',
       spend: microsToCLP(Number(row.metrics.cost_micros || 0)),
       budget: microsToCLP(Number(row.campaign_budget.amount_micros || 0)),
       impressions: Number(row.metrics.impressions || 0),

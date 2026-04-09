@@ -159,7 +159,7 @@ async function generateDailySpend(startDate: string, endDate: string) {
       SELECT segments.date, metrics.cost_micros
       FROM campaign
       WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
-        AND campaign.status = 'ENABLED'
+        AND metrics.cost_micros > 0
     `)
 
     const dailyMap: Record<string, number> = {}
