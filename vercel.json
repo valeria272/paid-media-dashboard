@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/weekly?type=optimization",
+      "schedule": "0 13 * * 2"
+    },
+    {
+      "path": "/api/cron/weekly?type=reminder",
+      "schedule": "0 12 * * 4"
+    },
+    {
+      "path": "/api/cron/weekly?type=client-recap",
+      "schedule": "0 14 * * 4"
+    }
+  ]
+}
