@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   const currentCampaigns = [
     ...(googleCurrent.status === 'fulfilled' ? googleCurrent.value : []),
     ...(metaCurrent.status === 'fulfilled' ? metaCurrent.value : []),
-  ].filter(c => c.status === 'active' && (c.impressions > 0 || c.spend > 0))
+  ].filter(c => c.impressions > 0 || c.spend > 0)
 
   const prevCampaigns = [
     ...(googlePrev.status === 'fulfilled' ? googlePrev.value : []),
@@ -64,13 +64,14 @@ export async function GET(request: NextRequest) {
 
   const current = buildSummary(currentCampaigns)
   const previous = buildSummary(prevCampaigns)
-  const alerts = detectAlerts(currentCampaigns, currentDays)
+  const activeCampaigns = currentCampaigns.filter(c => c.status === 'active')
+  const alerts = detectAlerts(activeCampaigns, currentDays)
 
   // Presupuestos aprobados desde Google Sheets
   const budgets = await fetchBudgets()
   const now = new Date()
   const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const budgetAlerts = detectBudgetAlerts(currentCampaigns, budgets, currentDays, daysInCurrentMonth)
+  const budgetAlerts = detectBudgetAlerts(activeCampaigns, budgets, currentDays, daysInCurrentMonth)
 
   const spendHistory = await generateDailySpend(currentStart, currentEnd)
 

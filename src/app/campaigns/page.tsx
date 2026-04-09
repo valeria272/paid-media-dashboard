@@ -56,7 +56,7 @@ export default function CampaignsPage() {
                             campaign.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
                             'bg-gray-50 text-gray-500'
                           }`}>
-                            {campaign.status}
+                            {campaign.status === 'active' ? 'Activa' : campaign.status === 'paused' ? 'Pausada' : 'Finalizada'}
                           </span>
                         </td>
                         <td className="text-right py-3 px-4">{formatCLP(campaign.spend)}</td>

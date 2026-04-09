@@ -309,8 +309,7 @@ export const MOCK_MEDIA_PLAN: MediaPlanRow[] = [
 // ═══ Build Summary from Campaigns ═══
 
 export function buildSummary(campaigns: CampaignMetrics[]): Omit<DashboardSummary, 'alerts' | 'lastUpdated'> {
-  // SOLO procesar campañas activas
-  campaigns = campaigns.filter(c => c.status === 'active')
+  // Incluir todas las campañas con gasto (activas + pausadas) para reflejar gasto real
   const totalSpend = campaigns.reduce((sum, c) => sum + c.spend, 0)
   const totalBudget = campaigns.reduce((sum, c) => sum + c.budget, 0)
   const totalImpressions = campaigns.reduce((sum, c) => sum + c.impressions, 0)

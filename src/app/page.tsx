@@ -193,13 +193,14 @@ export default function DashboardPage() {
 
           {/* Tabla campanas */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Campanas activas</h2>
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Campanas</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-gray-500">
                     <th className="text-left py-3 pr-4 font-medium">Campana</th>
                     <th className="text-left py-3 px-3 font-medium">Plataforma</th>
+                    <th className="text-center py-3 px-3 font-medium">Estado</th>
                     <th className="text-right py-3 px-3 font-medium">Inversion</th>
                     <th className="text-right py-3 px-3 font-medium">Imp.</th>
                     <th className="text-right py-3 px-3 font-medium">Clics</th>
@@ -217,6 +218,15 @@ export default function DashboardPage() {
                           c.platform === 'google' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
                         }`}>
                           {c.platform === 'google' ? 'Google' : 'Meta'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          c.status === 'active' ? 'bg-green-50 text-green-700' :
+                          c.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
+                          'bg-gray-50 text-gray-500'
+                        }`}>
+                          {c.status === 'active' ? 'Activa' : c.status === 'paused' ? 'Pausada' : 'Finalizada'}
                         </span>
                       </td>
                       <td className="text-right py-3 px-3">{formatCLP(c.spend)}</td>
