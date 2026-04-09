@@ -123,36 +123,57 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-4">
                 {data.budgets.map((b: any, i: number) => {
+                  const isUnmatched = b.unmatched === true
+                  const isPaused = b.status === 'paused'
                   const pct = b.monthlyBudget > 0 ? (b.currentSpend / b.monthlyBudget) * 100 : 0
-                  const barColor = pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                  const barColor = isUnmatched ? 'bg-gray-300' : pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-yellow-500' : 'bg-green-500'
                   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
                   const dayOfMonth = new Date().getDate()
                   const projected = dayOfMonth > 0 ? Math.round((b.currentSpend / dayOfMonth) * daysInMonth) : 0
                   const projPct = b.monthlyBudget > 0 ? (projected / b.monthlyBudget) * 100 : 0
 
                   return (
-                    <div key={i}>
+                    <div key={i} className={isUnmatched ? 'opacity-50' : ''}>
                       <div className="flex justify-between items-center text-sm mb-1">
-                        <div>
-                          <span className="font-medium text-gray-900">{b.campaignName}</span>
-                          <span className="text-gray-400 ml-2 text-xs">{b.channel}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${isUnmatched ? 'text-gray-400' : 'text-gray-900'}`}>{b.campaignName}</span>
+                          <span className="text-gray-400 text-xs">{b.channel}</span>
+                          {isPaused && (
+                            <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-50 text-yellow-700">Pausada</span>
+                          )}
                         </div>
                         <div className="text-right text-xs">
                           <span className="font-medium">{formatCLP(b.currentSpend)}</span>
-                          <span className="text-gray-400"> / {formatCLP(b.monthlyBudget)}</span>
-                          <span className={`ml-2 font-semibold ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-600'}`}>
-                            {pct.toFixed(0)}%
-                          </span>
+                          {b.monthlyBudget > 0 && (
+                            <>
+                              <span className="text-gray-400"> / {formatCLP(b.monthlyBudget)}</span>
+                              <span className={`ml-2 font-semibold ${pct > 100 ? 'text-red-600' : pct > 80 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                {pct.toFixed(0)}%
+                              </span>
+                            </>
+                          )}
+                          {b.monthlyBudget === 0 && isUnmatched && (
+                            <span className="text-gray-400 ml-2">sin presupuesto asignado</span>
+                          )}
                         </div>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2.5 mb-1">
-                        <div className={`h-2.5 rounded-full ${barColor} transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        Proyeccion mes: {formatCLP(projected)}
-                        {projPct > 105 && <span className="text-red-500 font-medium"> — supera presupuesto en {(projPct - 100).toFixed(0)}%</span>}
-                        {projPct <= 105 && projPct > 0 && <span className="text-green-600"> — dentro del presupuesto</span>}
-                      </p>
+                      {b.monthlyBudget > 0 && (
+                        <>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5 mb-1">
+                            <div className={`h-2.5 rounded-full ${barColor} transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Proyeccion mes: {formatCLP(projected)}
+                            {projPct > 105 && <span className="text-red-500 font-medium"> — supera presupuesto en {(projPct - 100).toFixed(0)}%</span>}
+                            {projPct <= 105 && projPct > 0 && <span className="text-green-600"> — dentro del presupuesto</span>}
+                          </p>
+                        </>
+                      )}
+                      {isUnmatched && (
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                          <div className="h-1.5 rounded-full bg-gray-300" style={{ width: '100%' }} />
+                        </div>
+                      )}
                     </div>
                   )
                 })}

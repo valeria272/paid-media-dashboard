@@ -94,20 +94,38 @@ export async function GET(request: NextRequest) {
     campaigns: currentCampaigns,
     alerts,
     budgetAlerts,
-    budgets: budgets.map(b => {
-      const platformMap: Record<string, string> = {
-        'meta ads': 'meta', 'facebook ads': 'meta',
-        'google ads': 'google', 'google': 'google',
-      }
-      const platform = platformMap[b.channel.toLowerCase()] || ''
-      const matchedCampaign = currentCampaigns.find(c =>
-        c.name.toLowerCase().includes(b.campaignName.toLowerCase().split('|')[0]?.trim() || '') ||
-        b.campaignName.toLowerCase().includes(c.name.toLowerCase().split('|')[0]?.trim() || '')
+    budgets: (() => {
+      const matchedCampaignIds = new Set<string>()
+      const budgetRows = budgets.map(b => {
+        const platformMap: Record<string, string> = {
+          'meta ads': 'meta', 'facebook ads': 'meta',
+          'google ads': 'google', 'google': 'google',
+        }
+        const platform = platformMap[b.channel.toLowerCase()] || ''
+        const matchedCampaign = currentCampaigns.find(c =>
+          c.name.toLowerCase().includes(b.campaignName.toLowerCase().split('|')[0]?.trim() || '') ||
+          b.campaignName.toLowerCase().includes(c.name.toLowerCase().split('|')[0]?.trim() || '')
+        )
+        if (matchedCampaign) matchedCampaignIds.add(matchedCampaign.id)
+        const spend = matchedCampaign?.spend ||
+          (platform ? currentCampaigns.filter(c => c.platform === platform).reduce((sum, c) => sum + c.spend, 0) : 0)
+        return { ...b, currentSpend: spend }
+      })
+      // Agregar campañas con gasto que no matchearon con ningún budget row
+      const unmatchedCampaigns = currentCampaigns.filter(c =>
+        c.spend > 0 && !matchedCampaignIds.has(c.id)
       )
-      const spend = matchedCampaign?.spend ||
-        (platform ? currentCampaigns.filter(c => c.platform === platform).reduce((sum, c) => sum + c.spend, 0) : 0)
-      return { ...b, currentSpend: spend }
-    }),
+      const unmatchedRows = unmatchedCampaigns.map(c => ({
+        campaignName: c.name,
+        channel: c.platform === 'google' ? 'Google Ads' : 'Meta Ads',
+        monthlyBudget: 0,
+        month: '',
+        currentSpend: c.spend,
+        unmatched: true,
+        status: c.status,
+      }))
+      return [...budgetRows, ...unmatchedRows]
+    })(),
     spendHistory,
     comparison: {
       period: {
