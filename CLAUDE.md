@@ -1,139 +1,112 @@
 # Paid Media Pro — Dashboard en Tiempo Real
 
-## Descripcion del Proyecto
+## Descripcion
 
-Dashboard de monitoreo y optimizacion de campanas de paid media multicanal (Google Ads, Meta Ads, TikTok Ads, LinkedIn Ads). Visualiza metricas en tiempo real, detecta alertas automaticas, envia notificaciones a Slack, genera recaps diarios, y requiere aprobacion humana antes de ejecutar cualquier cambio.
+Dashboard de monitoreo de campanas paid media para Grupo CopyLab / CopyWriters. Conecta Google Ads y Meta Ads con datos reales, compara vs mes anterior, trackea visitas web via GA4, y alerta si el gasto se va a pasar del presupuesto aprobado.
 
-## Stack Tecnologico
+**Produccion:** https://paid-media-dashboard-delta.vercel.app
+**Vista cliente:** https://paid-media-dashboard-delta.vercel.app/client
 
-- **Framework:** Next.js 14 (App Router)
-- **UI:** React + Tailwind CSS
-- **Graficos:** Recharts
-- **Actualizacion:** SWR (polling cada 5 minutos)
-- **Estado global:** Zustand
-- **Fechas:** date-fns
-- **Lenguaje:** TypeScript estricto
+## Stack
 
-## Reglas Criticas
+- Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- Recharts (graficos), SWR (polling), Zustand (estado), date-fns
+- google-ads-api (libreria oficial Node.js para Google Ads)
+- Deploy en Vercel — build requiere `NODE_OPTIONS='--max-old-space-size=4096'`
+
+## Plataformas conectadas
+
+| Servicio | Uso |
+|---|---|
+| **Google Ads** | Campanas Search AO — Customer ID 6992389876, MCC 5146261547 |
+| **Meta Ads** | GCL Lead Ads — Account act_1149308125905123 |
+| **GA4** | copywriters.cl + asesorias.copywriters.cl — Property 401462519 |
+| **Google Sheets** | Presupuestos aprobados — Sheet "Simulacion presupuesto GCL" |
+| **Slack** | Bot "asistente" en workspace Copywriters |
+
+## Reglas criticas
+
+### SOLO campanas activas
+- NUNCA analizar campanas pausadas, desactivadas o terminadas
+- Filtrar `status === 'active'` en fetchers, API routes, alertas, recaps
+- Campanas con 0 impresiones Y 0 gasto se excluyen (habilitadas pero sin servir)
+- Google: `campaign.status = 'ENABLED'`; Meta: `effective_status = 'ACTIVE'`
+
+### SOLO plataformas que usa CopyWriters
+- Solo Google Ads y Meta Ads — no incluir TikTok, LinkedIn, ni datos mock
+- Si se agrega una plataforma nueva, habilitarla explicitamente
 
 ### Moneda CLP
 - SIEMPRE formatear: `$5.000`, `$1.500.000`
 - NUNCA decimales en montos CLP
-- NUNCA coma como separador de miles
-- Usar `formatCLP()` de `lib/format/currency.ts` para todo monto
+- Usar `formatCLP()` de `lib/format/currency.ts`
 
-### Aprobacion Humana Obligatoria
-- **NUNCA** ejecutar cambios en campanas sin aprobacion del Paid Media Specialist
-- Todos los cambios propuestos van al sistema de aprobaciones (`/approvals`)
-- Se notifica por Slack con botones de Aprobar/Rechazar
-- Solo despues de aprobacion se ejecuta el cambio
-- Las aprobaciones pendientes expiran a las 24 horas
+### Alertas correctas
+- Alertas de pacing: comparar **gasto promedio diario** vs presupuesto diario
+- NUNCA comparar gasto acumulado del mes vs presupuesto diario
+- `detectAlerts()` siempre recibe `periodDays` como parametro
+- Umbrales de "sin conversiones" se ajustan por dias del periodo
 
-### SOLO Campanas Activas
-- **NUNCA** analizar campanas pausadas, desactivadas o terminadas
-- Filtrar por status === 'active' en TODOS los puntos: fetchers, API routes, alertas, recaps, summary, comparacion con planilla
-- Los fetchers filtran desde la fuente (Google: ENABLED+SERVING, Meta: effective_status ACTIVE, TikTok: CAMPAIGN_STATUS_ENABLE)
-- Las API routes aplican filtro adicional de seguridad antes de procesar
-- Analizar campanas inactivas genera alertas falsas y contamina metricas
+### Aprobacion humana
+- NUNCA ejecutar cambios en campanas sin aprobacion del Paid Media Specialist
+- Cambios propuestos van a `/approvals` + notificacion Slack
 
-### Solo Lectura por Defecto
-- Este dashboard es de **VISUALIZACION** — no modifica campanas directamente
-- Las optimizaciones se proponen como solicitudes de aprobacion
-- El Paid Media Specialist revisa y aprueba antes de cualquier ejecucion
+### Datos del periodo
+- Default: mes actual (1ro a hoy) comparado con mismo periodo del mes anterior
+- Selector de fechas: Hoy, 7d, Mes actual, Mes anterior, 30d, Personalizado
+- El periodo anterior siempre es la misma cantidad de dias antes del rango seleccionado
 
-### Datos en Tiempo Real
-- Polling cada 5 minutos (configurable via `NEXT_PUBLIC_REFRESH_INTERVAL`)
-- SIEMPRE mostrar timestamp de ultima actualizacion
-- Indicador visual live/offline
-- Si una plataforma falla, el dashboard continua con las demas (graceful degradation)
-
-### Rate Limits
-- Google Ads: minimo 1 min entre requests, recomendado 5 min
-- Meta Ads: max 200 req/hora, recomendado 5 min
-- TikTok Ads: max 1000 req/dia, recomendado 10 min
-- LinkedIn Ads: max 100 req/dia, recomendado 15 min
-
-## Estructura del Proyecto
+## Estructura
 
 ```
 src/
-  app/                    # Pages y API routes (Next.js App Router)
+  app/
+    page.tsx                    # Dashboard interno (equipo)
+    client/page.tsx             # Dashboard cliente (sin alertas/crisis)
+    campaigns/page.tsx          # Tabla de campanas
+    approvals/page.tsx          # Aprobaciones humanas
     api/
-      dashboard/          # API unificada — agrega todas las plataformas
-      alerts/             # Deteccion de alertas
-      approvals/          # Sistema de aprobaciones humanas
-      recaps/             # Generador de recaps diarios
-      slack/              # Envio manual de alertas a Slack
-  components/
-    layout/               # Sidebar, Header, LiveIndicator
-    metrics/              # KpiCard, KpiCardGrid, TrendBadge, PlatformTable
-    charts/               # SpendChart, graficos
-    alerts/               # AlertBanner, AlertList, AlertBadge
-    approvals/            # ApprovalCard
+      dashboard/route.ts        # API principal — agrega todo + comparacion mensual
+      alerts/route.ts           # Alertas de performance
+      analytics/route.ts        # GA4 — visitas web
+      approvals/route.ts        # CRUD aprobaciones
+      recaps/route.ts           # Recap diario/semanal
+      notify/route.ts           # Disparar notificaciones Slack
+      slack/route.ts            # Envio manual a Slack
   lib/
-    fetchers/             # Conexion a APIs (Google, Meta, TikTok, LinkedIn)
-    alerts/               # Logica de deteccion de alertas
-    slack/                # Integracion Slack (webhooks)
-    sheets/               # Conexion a Google Sheets (planilla de medios)
-    approvals/            # Store de aprobaciones
-    recaps/               # Generador de recaps
-    format/               # Formateo CLP y helpers
-    types/                # Tipos TypeScript compartidos
-    mock/                 # Datos mock para desarrollo
-  hooks/                  # useDashboardData, useAlerts, useApprovals
-  store/                  # Zustand store
-  config/                 # KPIs, rate limits, plataformas
+    fetchers/
+      googleAds.ts              # Google Ads API (libreria oficial)
+      metaAds.ts                # Meta Marketing API + auto-renovacion token
+      analytics.ts              # Google Analytics 4 Data API
+      budgetSheet.ts            # Presupuestos desde Google Sheets
+      metaTokenRefresh.ts       # Auto-renovacion token Meta (cada 24h)
+    alerts/detectAlerts.ts      # Logica de deteccion (pacing, CPA, CTR, conversiones)
+    slack/
+      slackClient.ts            # Cliente Slack (Bot Token)
+      notifications.ts          # Notificaciones: performance, budget, optimizacion, recap
+    dates.ts                    # Helpers de rangos mensuales
+    format/currency.ts          # formatCLP, formatPercent, etc
+    types/index.ts              # Tipos TypeScript
+  components/
+    layout/DateRangePicker.tsx  # Selector de fechas con presets
+    layout/Sidebar.tsx          # Solo Google + Meta + Aprobaciones
+    layout/LiveIndicator.tsx    # Punto verde + timestamp
+    metrics/                    # KpiCard, KpiCardGrid, PlatformTable, TrendBadge
+    charts/SpendChart.tsx       # Grafico de area (Recharts)
+    alerts/                     # AlertBanner, AlertList, AlertBadge
+    approvals/ApprovalCard.tsx  # Tarjeta de aprobacion con review
 ```
 
-## Flujo de Alertas
+## Tokens y credenciales
 
-1. Cada 5 min se consultan las APIs de todas las plataformas
-2. `detectAlerts()` evalua cada campana contra los KPI targets
-3. Alertas se clasifican: **critical** > **warning** > **opportunity**
-4. Alertas criticas se envian automaticamente a Slack
-5. Dashboard muestra banner rojo + lista de alertas
+- Refresh token Google tiene scopes: `adwords` + `analytics.readonly` + `spreadsheets.readonly`
+- Para regenerar: `python3 generate_token.py` (abre navegador, pide permisos)
+- Meta token long-lived (60 dias), auto-renovacion en `metaTokenRefresh.ts`
+- Si Google da "invalid_client" en Vercel: borrar y recrear la env var con `printf` (sin newlines)
 
-### Tipos de Alerta
-- **Critica:** Sobregasto >120%, CPA >2x objetivo, sin conversiones con gasto alto, pacing <50% despues de mediodia
-- **Advertencia:** CTR bajo, CPA 20-100% sobre objetivo
-- **Oportunidad:** CPA 30%+ mejor que objetivo (escalar), presupuesto subutilizado
+## Pendientes
 
-## Flujo de Aprobaciones
-
-1. Sistema detecta oportunidad de optimizacion
-2. Crea solicitud de aprobacion con: tipo, campana, valor actual, cambio propuesto, razon, impacto
-3. Notifica al Paid Media Specialist via Slack
-4. Specialist revisa en `/approvals` o desde Slack
-5. Aprueba o rechaza con notas opcionales
-6. Solo si aprobado, se ejecuta el cambio
-
-## Planilla de Medios (Google Sheets)
-
-- Conecta via Google Sheets API
-- Compara gasto planificado vs real
-- Detecta desviaciones >30% como alertas criticas
-- Detecta sub-ejecucion >50% como advertencia
-
-## Recaps Diarios
-
-- Endpoint `/api/recaps` genera resumen del dia
-- POST a `/api/recaps` envia recap a Slack
-- Incluye: gasto total, conversiones, mejor/peor campana, breakdown por plataforma, recomendaciones
-
-## Desarrollo Local
-
-```bash
-cd paid-media-dashboard
-npm install
-npm run dev
-```
-
-Sin credenciales de API, usa datos mock automaticamente. Ver `.env.example` para configurar APIs reales.
-
-## Comandos Utiles
-
-```bash
-npm run dev          # Desarrollo local (http://localhost:3000)
-npm run build        # Build de produccion
-npm run start        # Servidor de produccion
-```
+- [ ] Slack: agregar SLACK_BOT_TOKEN y SLACK_USER_ID a Vercel env vars
+- [ ] Definir canal de Slack para alertas (actualmente DM a Vale)
+- [ ] Programar cron para recap semanal automatico
+- [ ] Probar flujo completo de notificaciones Slack en produccion
