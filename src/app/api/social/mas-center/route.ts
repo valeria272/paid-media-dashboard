@@ -7,7 +7,6 @@
 import { NextResponse } from 'next/server'
 import { fetchMasCenterInstagram } from '@/lib/fetchers/masCenterInstagram'
 import { fetchMasCenterFacebook } from '@/lib/fetchers/masCenterFacebook'
-import { fetchMasCenterLinkedin } from '@/lib/fetchers/masCenterLinkedin'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,23 +51,6 @@ export async function GET(req: Request) {
         results.facebook = await fetchMasCenterFacebook()
       } catch (err) {
         results.facebook = { error: err instanceof Error ? err.message : 'Error Facebook' }
-      }
-    }
-  }
-
-  // ── LinkedIn ─────────────────────────────────────────────
-  if (platform === 'all' || platform === 'linkedin') {
-    if (!isConfigured(['MAS_CENTER_LI_TOKEN', 'MAS_CENTER_LI_ORG_ID'])) {
-      results.linkedin = {
-        notConfigured: true,
-        missingVars: ['MAS_CENTER_LI_TOKEN', 'MAS_CENTER_LI_ORG_ID'],
-        setupUrl: 'https://developer.linkedin.com/docs/oauth',
-      }
-    } else {
-      try {
-        results.linkedin = await fetchMasCenterLinkedin()
-      } catch (err) {
-        results.linkedin = { error: err instanceof Error ? err.message : 'Error LinkedIn' }
       }
     }
   }

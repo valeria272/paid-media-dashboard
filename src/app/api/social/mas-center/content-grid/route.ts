@@ -20,7 +20,7 @@ export interface ContentGridItem {
   week: number             // 1-4
   day_name: string         // ej: "Lunes"
   date_label: string       // ej: "Lunes 7 de abril"
-  platform: 'Instagram' | 'Facebook' | 'LinkedIn' | 'Todas'
+  platform: 'Instagram' | 'Facebook' | 'Todas'
   content_type: 'Reel' | 'Carrusel' | 'Foto' | 'Story' | 'Post' | 'Video'
   theme: string            // tema central
   topic: string            // título/idea del contenido
@@ -110,7 +110,7 @@ ${performanceContext}
 
 INSTRUCCIONES:
 - Crea exactamente 20 publicaciones para el mes (distribución: ~5 por semana, prioriza Instagram y Facebook)
-- Distribuye las plataformas: Instagram (~9), Facebook (~7), LinkedIn (~4)
+- Distribuye las plataformas: Instagram (~12), Facebook (~8)
 - Mezcla formatos: Reels, Carruseles, Fotos, Stories, Posts
 - Conecta el contenido con los eventos del briefing naturalmente (sin forzarlo)
 - Los hooks deben ser de máximo 15 palabras, directos e impactantes

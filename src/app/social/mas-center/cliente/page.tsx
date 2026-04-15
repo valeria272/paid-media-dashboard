@@ -9,7 +9,6 @@ import {
 } from 'recharts'
 import type { MasCenterInstagramData } from '@/lib/fetchers/masCenterInstagram'
 import type { MasCenterFacebookData } from '@/lib/fetchers/masCenterFacebook'
-import type { MasCenterLinkedinData } from '@/lib/fetchers/masCenterLinkedin'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -20,7 +19,6 @@ interface PlatformError { error: string }
 interface MasCenterData {
   instagram?: MasCenterInstagramData | NotConfigured | PlatformError
   facebook?: MasCenterFacebookData | NotConfigured | PlatformError
-  linkedin?: MasCenterLinkedinData | NotConfigured | PlatformError
   fetchedAt?: string
 }
 
@@ -36,10 +34,6 @@ function isInstagram(x: unknown): x is MasCenterInstagramData {
 function isFacebook(x: unknown): x is MasCenterFacebookData {
   return !!x && typeof x === 'object' && 'fan_count' in x
 }
-function isLinkedin(x: unknown): x is MasCenterLinkedinData {
-  return !!x && typeof x === 'object' && 'follower_count' in x && 'org_name' in x
-}
-
 function pctArrow(v: number) {
   const color = v > 0 ? 'text-emerald-500' : v < 0 ? 'text-red-400' : 'text-gray-400'
   const arrow = v > 0 ? '↑' : v < 0 ? '↓' : '→'
@@ -431,9 +425,8 @@ function InsightsSection({ data }: { data: MasCenterData }) {
     try {
       const ig = isInstagram(data.instagram) ? data.instagram : null
       const fb = isFacebook(data.facebook) ? data.facebook : null
-      const li = isLinkedin(data.linkedin) ? data.linkedin : null
 
-      if (!ig && !fb && !li) throw new Error('Sin datos de plataformas para analizar')
+      if (!ig && !fb) throw new Error('Sin datos de plataformas para analizar')
 
       const body: Record<string, unknown> = {}
       if (ig) body.instagram = {
@@ -455,15 +448,6 @@ function InsightsSection({ data }: { data: MasCenterData }) {
         reach_pct: fb.comparison.reach_pct,
         engaged_users: fb.engaged_users_month,
       }
-      if (li) body.linkedin = {
-        org_name: li.org_name,
-        followers: li.follower_count,
-        follower_gain: li.follower_gain_month,
-        impressions: li.total_impressions_month,
-        impressions_pct: li.comparison.impressions_pct,
-        engagement_rate: li.engagement_rate,
-      }
-
       const res = await fetch('/api/social/mas-center/insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -534,7 +518,6 @@ export default function MasCenterClientePage() {
 
   const ig = isInstagram(data?.instagram) ? data!.instagram as MasCenterInstagramData : null
   const fb = isFacebook(data?.facebook) ? data!.facebook as MasCenterFacebookData : null
-  const li = isLinkedin(data?.linkedin) ? data!.linkedin as MasCenterLinkedinData : null
 
   const today = new Date()
   const monthLabel = today.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
@@ -729,56 +712,7 @@ export default function MasCenterClientePage() {
             </>
           )}
 
-          {/* ── 7. LinkedIn ── */}
-          <section className="pb-10">
-            <SectionHeader icon="💼" title="LinkedIn" subtitle="Presencia profesional y alcance orgánico" />
-            {li ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <KpiCard label="Seguidores" value={li.follower_count} accent="#0a66c2" />
-                  <KpiCard label="Nuevos seguidores" value={li.follower_gain_month}
-                    delta={li.comparison.followers_pct} sub="este mes" accent="#0a66c2" />
-                  <KpiCard label="Impresiones" value={li.total_impressions_month}
-                    delta={li.comparison.impressions_pct} accent="#0a66c2" />
-                  <KpiCard label="Engagement rate" value={`${li.engagement_rate}%`} accent="#0a66c2" />
-                </div>
-
-                {li.posts.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-50">
-                      <h3 className="text-sm font-bold text-gray-700">Publicaciones recientes</h3>
-                    </div>
-                    <div className="divide-y divide-gray-50">
-                      {li.posts.slice(0, 4).map(post => (
-                        <div key={post.id} className="px-6 py-4">
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">{post.text || '(sin texto)'}</p>
-                          <div className="flex gap-4 text-xs text-gray-400">
-                            <span>👁 {post.impressions.toLocaleString('es-CL')}</span>
-                            <span>♥ {post.reactions}</span>
-                            <span>💬 {post.comments}</span>
-                            <span>↗ {post.shares}</span>
-                            <span className="ml-auto text-indigo-500 font-semibold">ER {post.engagement_rate}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : isNotConfigured(data?.linkedin) ? (
-              <NotConnectedPlatform name="LinkedIn" />
-            ) : isError(data?.linkedin) ? (
-              <div className="bg-red-50 rounded-2xl p-6 text-sm text-red-500">
-                Error cargando LinkedIn: {(data?.linkedin as PlatformError).error}
-              </div>
-            ) : (
-              <NotConnectedPlatform name="LinkedIn" />
-            )}
-          </section>
-
-          <Divider />
-
-          {/* ── 8. Insights y conclusiones ── */}
+          {/* ── 7. Insights y conclusiones ── */}
           <section className="pb-10">
             <SectionHeader icon="💡" title="Insights y conclusiones"
               subtitle="Recomendaciones para el próximo mes generadas con IA" />

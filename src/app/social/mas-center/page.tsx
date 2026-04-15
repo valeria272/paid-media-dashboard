@@ -12,7 +12,6 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { LiveIndicator } from '@/components/layout/LiveIndicator'
 import type { MasCenterInstagramData } from '@/lib/fetchers/masCenterInstagram'
 import type { MasCenterFacebookData } from '@/lib/fetchers/masCenterFacebook'
-import type { MasCenterLinkedinData } from '@/lib/fetchers/masCenterLinkedin'
 import type { ContentGridResponse, ContentGridItem } from '@/app/api/social/mas-center/content-grid/route'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -32,7 +31,6 @@ interface PlatformError {
 interface MasCenterData {
   instagram?: MasCenterInstagramData | NotConfigured | PlatformError
   facebook?: MasCenterFacebookData | NotConfigured | PlatformError
-  linkedin?: MasCenterLinkedinData | NotConfigured | PlatformError
   fetchedAt?: string
 }
 
@@ -138,7 +136,7 @@ function ContentGridTable({ grid }: { grid: ContentGridItem[] }) {
   const [filterPlatform, setFilterPlatform] = useState<string>('todas')
   const [filterWeek, setFilterWeek] = useState<number>(0)
 
-  const platforms = ['todas', 'Instagram', 'Facebook', 'LinkedIn']
+  const platforms = ['todas', 'Instagram', 'Facebook']
   const weeks = [0, 1, 2, 3, 4]
 
   const filtered = grid.filter(item => {
@@ -470,53 +468,11 @@ function FacebookSection({ data }: { data: MasCenterFacebookData }) {
 
 // ── Sección LinkedIn ─────────────────────────────────────────
 
-function LinkedInSection({ data }: { data: MasCenterLinkedinData }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="font-semibold text-gray-900">{data.org_name}</p>
-        <span className="text-xs text-gray-400">
-          {data.comparison.current_month} vs {data.comparison.prev_month}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Seguidores" value={data.follower_count} highlight />
-        <StatCard label="Nuevos seguidores" value={data.follower_gain_month} sub="este mes"
-          delta={data.comparison.followers_pct} />
-        <StatCard label="Impresiones" value={data.total_impressions_month}
-          delta={data.comparison.impressions_pct} />
-        <StatCard label="Engagement rate" value={`${data.engagement_rate}%`} sub="impresiones totales" />
-      </div>
-
-      {data.posts.length > 0 && (
-        <div>
-          <SectionTitle>Posts recientes</SectionTitle>
-          <div className="space-y-2">
-            {data.posts.slice(0, 5).map(post => (
-              <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-3">
-                <p className="text-xs text-gray-600 line-clamp-2 mb-2">{post.text || '(sin texto)'}</p>
-                <div className="flex gap-3 text-xs text-gray-400">
-                  <span>👁 {post.impressions.toLocaleString('es-CL')} imp.</span>
-                  <span>♥ {post.reactions}</span>
-                  <span>💬 {post.comments}</span>
-                  <span>↗ {post.shares}</span>
-                  <span className="text-indigo-500 font-medium ml-auto">ER {post.engagement_rate}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Página principal ─────────────────────────────────────────
 
 export default function MasCenterPage() {
   const [period, setPeriod] = useState(30)
-  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'linkedin' | 'contenido'>('instagram')
+  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'contenido'>('instagram')
   const [briefing, setBriefing] = useState('')
   const [gridLoading, setGridLoading] = useState(false)
   const [grid, setGrid] = useState<ContentGridResponse | null>(null)
@@ -561,7 +517,6 @@ export default function MasCenterPage() {
   const TABS = [
     { id: 'instagram' as const, label: 'Instagram', icon: '📸' },
     { id: 'facebook' as const, label: 'Facebook', icon: '📘' },
-    { id: 'linkedin' as const, label: 'LinkedIn', icon: '💼' },
     { id: 'contenido' as const, label: 'Contenido', icon: '📅' },
   ]
 
@@ -574,7 +529,7 @@ export default function MasCenterPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Mas Center — Redes Sociales</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Dashboard orgánico · Instagram, Facebook, LinkedIn</p>
+            <p className="text-sm text-gray-500 mt-0.5">Dashboard orgánico · Instagram, Facebook</p>
           </div>
           <div className="flex items-center gap-3">
             {/* Period selector */}
@@ -657,23 +612,6 @@ export default function MasCenterPage() {
                   </div>
                 ) : (
                   <FacebookSection data={data.facebook as MasCenterFacebookData} />
-                )}
-              </>
-            )}
-
-            {/* ── LinkedIn ── */}
-            {activeTab === 'linkedin' && (
-              <>
-                {isNotConfigured(data.linkedin) ? (
-                  <NotConnectedCard platform="LinkedIn"
-                    vars={(data.linkedin as NotConfigured).missingVars}
-                    setupUrl={(data.linkedin as NotConfigured).setupUrl} />
-                ) : isError(data.linkedin) ? (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
-                    Error LinkedIn: {(data.linkedin as PlatformError).error}
-                  </div>
-                ) : (
-                  <LinkedInSection data={data.linkedin as MasCenterLinkedinData} />
                 )}
               </>
             )}
