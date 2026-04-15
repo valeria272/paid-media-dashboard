@@ -73,20 +73,6 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── TikTok (stub — pendiente de credenciales) ─────────────
-  if (platform === 'all' || platform === 'tiktok') {
-    if (!isConfigured(['MAS_CENTER_TT_TOKEN', 'MAS_CENTER_TT_OPEN_ID'])) {
-      results.tiktok = {
-        notConfigured: true,
-        missingVars: ['MAS_CENTER_TT_TOKEN', 'MAS_CENTER_TT_OPEN_ID'],
-        setupUrl: 'https://developers.tiktok.com/doc/login-kit-web',
-      }
-    } else {
-      // TODO: implementar fetchMasCenterTiktok cuando se agreguen credenciales
-      results.tiktok = { notConfigured: false, comingSoon: true }
-    }
-  }
-
   return NextResponse.json({
     ...results,
     fetchedAt: new Date().toISOString(),

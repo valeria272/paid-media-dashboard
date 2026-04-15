@@ -33,7 +33,6 @@ interface MasCenterData {
   instagram?: MasCenterInstagramData | NotConfigured | PlatformError
   facebook?: MasCenterFacebookData | NotConfigured | PlatformError
   linkedin?: MasCenterLinkedinData | NotConfigured | PlatformError
-  tiktok?: NotConfigured | { comingSoon: true }
   fetchedAt?: string
 }
 
@@ -92,8 +91,7 @@ function NotConnectedCard({ platform, vars, setupUrl }: {
       <div className="text-3xl">{
         platform === 'Instagram' ? '📸' :
         platform === 'Facebook' ? '📘' :
-        platform === 'LinkedIn' ? '💼' :
-        platform === 'TikTok' ? '🎵' : '🔗'
+        platform === 'LinkedIn' ? '💼' : '🔗'
       }</div>
       <div>
         <p className="text-sm font-semibold text-gray-700">{platform} no conectado</p>
@@ -118,7 +116,6 @@ const PLATFORM_COLORS: Record<string, string> = {
   Instagram: '#e1306c',
   Facebook: '#1877f2',
   LinkedIn: '#0a66c2',
-  TikTok: '#010101',
   Todas: '#6366f1',
 }
 
@@ -141,7 +138,7 @@ function ContentGridTable({ grid }: { grid: ContentGridItem[] }) {
   const [filterPlatform, setFilterPlatform] = useState<string>('todas')
   const [filterWeek, setFilterWeek] = useState<number>(0)
 
-  const platforms = ['todas', 'Instagram', 'Facebook', 'LinkedIn', 'TikTok']
+  const platforms = ['todas', 'Instagram', 'Facebook', 'LinkedIn']
   const weeks = [0, 1, 2, 3, 4]
 
   const filtered = grid.filter(item => {
@@ -519,7 +516,7 @@ function LinkedInSection({ data }: { data: MasCenterLinkedinData }) {
 
 export default function MasCenterPage() {
   const [period, setPeriod] = useState(30)
-  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'contenido'>('instagram')
+  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'linkedin' | 'contenido'>('instagram')
   const [briefing, setBriefing] = useState('')
   const [gridLoading, setGridLoading] = useState(false)
   const [grid, setGrid] = useState<ContentGridResponse | null>(null)
@@ -565,7 +562,6 @@ export default function MasCenterPage() {
     { id: 'instagram' as const, label: 'Instagram', icon: '📸' },
     { id: 'facebook' as const, label: 'Facebook', icon: '📘' },
     { id: 'linkedin' as const, label: 'LinkedIn', icon: '💼' },
-    { id: 'tiktok' as const, label: 'TikTok', icon: '🎵' },
     { id: 'contenido' as const, label: 'Contenido', icon: '📅' },
   ]
 
@@ -578,7 +574,7 @@ export default function MasCenterPage() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Mas Center — Redes Sociales</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Dashboard orgánico · Instagram, Facebook, LinkedIn, TikTok</p>
+            <p className="text-sm text-gray-500 mt-0.5">Dashboard orgánico · Instagram, Facebook, LinkedIn</p>
           </div>
           <div className="flex items-center gap-3">
             {/* Period selector */}
@@ -680,13 +676,6 @@ export default function MasCenterPage() {
                   <LinkedInSection data={data.linkedin as MasCenterLinkedinData} />
                 )}
               </>
-            )}
-
-            {/* ── TikTok ── */}
-            {activeTab === 'tiktok' && (
-              <NotConnectedCard platform="TikTok"
-                vars={['MAS_CENTER_TT_TOKEN', 'MAS_CENTER_TT_OPEN_ID']}
-                setupUrl="https://developers.tiktok.com/doc/login-kit-web" />
             )}
 
             {/* ── Contenido (ideas + grilla) ── */}
