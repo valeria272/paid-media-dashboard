@@ -1,4 +1,6 @@
-# Paid Media Pro — Dashboard en Tiempo Real
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Descripcion
 
@@ -7,43 +9,73 @@ Dashboard de monitoreo de campanas paid media para Grupo CopyLab / CopyWriters. 
 **Produccion:** https://paid-media-dashboard-delta.vercel.app
 **Vista cliente:** https://paid-media-dashboard-delta.vercel.app/client
 
+## Comandos
+
+```bash
+npm run dev       # servidor local
+npm run build     # build de produccion (incluye NODE_OPTIONS para google-ads-api)
+npx vercel --prod --yes  # deploy a produccion (no hay CLI instalado globalmente)
+```
+
 ## Stack
 
-- Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- Recharts (graficos), SWR (polling), Zustand (estado), date-fns
-- google-ads-api (libreria oficial Node.js para Google Ads)
-- Deploy en Vercel — build requiere `NODE_OPTIONS='--max-old-space-size=4096'`
+- Next.js 16 (App Router) + TypeScript + Tailwind CSS
+- Recharts (graficos), SWR (polling cada 10 min), Zustand (estado global)
+- `google-ads-api` libreria oficial Node.js — pesada, por eso NODE_OPTIONS en build
+- Deploy en Vercel, proyecto `paid-media-dashboard` bajo cuenta `valeria-1724`
 
 ## Plataformas conectadas
 
-| Servicio | Uso |
+| Servicio | Detalle |
 |---|---|
-| **Google Ads** | Campanas Search AO — Customer ID 6992389876, MCC 5146261547 |
-| **Meta Ads** | GCL Lead Ads — Account act_1149308125905123 |
-| **GA4** | copywriters.cl + asesorias.copywriters.cl — Property 401462519 |
-| **Google Sheets** | Presupuestos aprobados — Sheet "Simulacion presupuesto GCL" |
-| **Slack** | Bot "asistente" en workspace Copywriters |
+| **Google Ads** | Search AO — Customer ID 6992389876, MCC 5146261547 |
+| **Meta Ads** | Account act_1149308125905123, Pagina 104484357562306 |
+| **GA4** | Property 401462519 — cubre copywriters.cl y asesorias.copywriters.cl |
+| **Google Sheets** | Presupuestos aprobados — Sheet ID 1w5QEJc6MhxH4wLGvKNFJO_0oJ-HKhuEPjXfrpgKOy7g |
+| **Slack** | Bot "asistente" (U0AQX9T3CHZ), canal #registro-campanas-gcl (C0ARWD3BLQN) |
+
+## Arquitectura de datos
+
+Cada request del frontend hace polling via SWR a las API routes. Las API routes llaman a los fetchers que consultan las APIs externas. No hay base de datos — todo se obtiene en tiempo real.
+
+```
+Frontend (SWR polling)
+  └── /api/dashboard      → googleAds.ts + metaAds.ts + budgetSheet.ts
+  └── /api/alerts         → detectAlerts.ts (usa datos del dashboard)
+  └── /api/analytics      → analytics.ts → GA4 Data API (copywriters.cl)
+  └── /api/analytics/asesorias → analytics.ts → GA4 filtrado por hostname
+  └── /api/notify         → notifications.ts → Slack Bot
+  └── /api/cron/weekly    → crons automaticos (protegido con CRON_SECRET)
+  └── /api/approvals      → CRUD en memoria (no persiste entre deploys)
+```
+
+**GA4 — separacion de dominios:** `analytics.ts` usa `ASESORIAS_FILTER` (hostname = asesorias.copywriters.cl) para separar metricas. Ambos dominios comparten la property 401462519 y el Measurement ID G-0HSFLFM44X. Cross-domain linking configurado en GA4 y en gtag.
 
 ## Reglas criticas
 
 ### SOLO campanas activas
 - NUNCA analizar campanas pausadas, desactivadas o terminadas
-- Filtrar `status === 'active'` en fetchers, API routes, alertas, recaps
-- Campanas con 0 impresiones Y 0 gasto se excluyen (habilitadas pero sin servir)
-- Google: `campaign.status = 'ENABLED'`; Meta: `effective_status = 'ACTIVE'`
+- Campanas con 0 impresiones Y 0 gasto se excluyen aunque esten ENABLED
+- Google GAQL: usar `metrics.cost_micros > 0`, NO `campaign.status = 'ENABLED'` como filtro
+- Meta: `effective_status = 'ACTIVE'`
 
 ### SOLO plataformas que usa CopyWriters
-- Solo Google Ads y Meta Ads — no incluir TikTok, LinkedIn, ni datos mock
-- Si se agrega una plataforma nueva, habilitarla explicitamente
+- Solo Google Ads y Meta Ads — no agregar TikTok, LinkedIn ni datos mock
+- Si se agrega una plataforma nueva, habilitarla explicitamente con la usuaria
 
 ### Moneda CLP
-- SIEMPRE formatear: `$5.000`, `$1.500.000`
+- SIEMPRE formatear: `$5.000`, `$1.500.000` — usar `formatCLP()` de `lib/format/currency.ts`
 - NUNCA decimales en montos CLP
-- Usar `formatCLP()` de `lib/format/currency.ts`
 
-### Alertas correctas
-- Alertas de pacing: comparar **gasto promedio diario** vs presupuesto diario
-- NUNCA comparar gasto acumulado del mes vs presupuesto diario
+### Meta Ads API — Presupuestos
+- CLP NO tiene centavos — el valor en la API es DIRECTO (NO multiplicar por 100)
+- Presupuestos SIEMPRE como `lifetime_budget` mensual con `start_time` y `end_time` (30 dias)
+- NUNCA activar campanas automaticamente — dejar en PAUSED para revision del PM
+- NUNCA modificar campanas que la usuaria ya configuro manualmente
+- Al crear ad sets: Advantage+ Audience y todas las ubicaciones por defecto
+
+### Alertas
+- Comparar **gasto promedio diario** vs presupuesto diario — NUNCA acumulado vs diario
 - `detectAlerts()` siempre recibe `periodDays` como parametro
 - Umbrales de "sin conversiones" se ajustan por dias del periodo
 
@@ -52,61 +84,33 @@ Dashboard de monitoreo de campanas paid media para Grupo CopyLab / CopyWriters. 
 - Cambios propuestos van a `/approvals` + notificacion Slack
 
 ### Datos del periodo
-- Default: mes actual (1ro a hoy) comparado con mismo periodo del mes anterior
-- Selector de fechas: Hoy, 7d, Mes actual, Mes anterior, 30d, Personalizado
-- El periodo anterior siempre es la misma cantidad de dias antes del rango seleccionado
-
-## Estructura
-
-```
-src/
-  app/
-    page.tsx                    # Dashboard interno (equipo)
-    client/page.tsx             # Dashboard cliente (sin alertas/crisis)
-    campaigns/page.tsx          # Tabla de campanas
-    approvals/page.tsx          # Aprobaciones humanas
-    api/
-      dashboard/route.ts        # API principal — agrega todo + comparacion mensual
-      alerts/route.ts           # Alertas de performance
-      analytics/route.ts        # GA4 — visitas web
-      approvals/route.ts        # CRUD aprobaciones
-      recaps/route.ts           # Recap diario/semanal
-      notify/route.ts           # Disparar notificaciones Slack
-      slack/route.ts            # Envio manual a Slack
-  lib/
-    fetchers/
-      googleAds.ts              # Google Ads API (libreria oficial)
-      metaAds.ts                # Meta Marketing API + auto-renovacion token
-      analytics.ts              # Google Analytics 4 Data API
-      budgetSheet.ts            # Presupuestos desde Google Sheets
-      metaTokenRefresh.ts       # Auto-renovacion token Meta (cada 24h)
-    alerts/detectAlerts.ts      # Logica de deteccion (pacing, CPA, CTR, conversiones)
-    slack/
-      slackClient.ts            # Cliente Slack (Bot Token)
-      notifications.ts          # Notificaciones: performance, budget, optimizacion, recap
-    dates.ts                    # Helpers de rangos mensuales
-    format/currency.ts          # formatCLP, formatPercent, etc
-    types/index.ts              # Tipos TypeScript
-  components/
-    layout/DateRangePicker.tsx  # Selector de fechas con presets
-    layout/Sidebar.tsx          # Solo Google + Meta + Aprobaciones
-    layout/LiveIndicator.tsx    # Punto verde + timestamp
-    metrics/                    # KpiCard, KpiCardGrid, PlatformTable, TrendBadge
-    charts/SpendChart.tsx       # Grafico de area (Recharts)
-    alerts/                     # AlertBanner, AlertList, AlertBadge
-    approvals/ApprovalCard.tsx  # Tarjeta de aprobacion con review
-```
+- Default: mes actual (1ro a hoy) vs mismo periodo del mes anterior
+- El periodo anterior es siempre la misma cantidad de dias antes del rango seleccionado
 
 ## Tokens y credenciales
 
-- Refresh token Google tiene scopes: `adwords` + `analytics.readonly` + `spreadsheets.readonly`
-- Para regenerar: `python3 generate_token.py` (abre navegador, pide permisos)
-- Meta token long-lived (60 dias), auto-renovacion en `metaTokenRefresh.ts`
-- Si Google da "invalid_client" en Vercel: borrar y recrear la env var con `printf` (sin newlines)
+- **Google** refresh token scopes: `adwords` + `analytics.readonly` + `spreadsheets.readonly`
+  - Para regenerar: `python3 generate_token.py` (abre navegador)
+  - Si da "invalid_client" en Vercel: borrar y recrear la env var con `printf` (sin newlines)
+- **Meta** token long-lived (60 dias), auto-renovacion en `metaTokenRefresh.ts` cada 24h
+  - Token expira ~junio 2026 — verificar antes de esa fecha
+- **Pixel Meta:** GCL 2025-2026 (242693976884672) — compartido entre ambos dominios
 
-## Pendientes
+## Crons automaticos (Vercel)
 
-- [ ] Slack: agregar SLACK_BOT_TOKEN y SLACK_USER_ID a Vercel env vars
-- [ ] Definir canal de Slack para alertas (actualmente DM a Vale)
-- [ ] Programar cron para recap semanal automatico
-- [ ] Probar flujo completo de notificaciones Slack en produccion
+| Hora CLT | Endpoint | Accion |
+|---|---|---|
+| Mar 9:00 | `/api/cron/weekly` | Alertas + sugerencias pre-recap |
+| Jue 8:00 | `/api/notify` | Reminder confirmacion PM |
+| Jue 10:00 | `/api/notify` | Client recap formato A |
+| Lun/Mie/Vie 9:00 | `/api/cron/weekly` | Monitoreo todas las campanas |
+
+Todos los endpoints de cron estan protegidos con `CRON_SECRET`.
+
+## Campana Meta — Asesorias (activa desde abr 2026)
+
+- Campana: GCL | Asesoría Digital | Leads (ID: 120245026001540319)
+- AdSet: Asesoría Digital | Chile | Advantage+ | Mensual (ID: 120245026321810319)
+- Presupuesto: $100.000 CLP lifetime (10 abr - 9 may 2026)
+- Pixel evento: Lead — solo en asesorias.copywriters.cl
+- Conversion en GA4: evento `generate_lead` (marcado como evento clave)

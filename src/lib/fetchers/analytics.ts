@@ -15,6 +15,48 @@ export interface WebMetricsByDay {
   conversions: number
 }
 
+export interface AsesoriasEvent {
+  eventName: string
+  eventCount: number
+  users: number
+}
+
+export interface HeatmapCell {
+  day: number    // GA4: 0=Domingo … 6=Sábado
+  hour: number   // 0-23
+  sessions: number
+}
+
+// ═══ Helper compartido ═══
+
+async function ga4Request(propertyId: string, body: object): Promise<any> {
+  const token = await getGoogleAccessToken()
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  )
+  if (!res.ok) throw new Error(`GA4 ${res.status}: ${await res.text()}`)
+  return res.json()
+}
+
+const ASESORIAS_FILTER = {
+  dimensionFilter: {
+    filter: {
+      fieldName: 'hostname',
+      stringFilter: { matchType: 'EXACT', value: 'asesorias.copywriters.cl' },
+    },
+  },
+}
+
+// ═══ copywriters.cl — métricas principales ═══
+
 export async function fetchGA4Metrics(
   propertyId: string,
   startDate: string,
@@ -24,48 +66,26 @@ export async function fetchGA4Metrics(
     console.warn('[DEV] GA4 sin credenciales → usando mock')
     return MOCK_WEB_METRICS
   }
-
   try {
-    const token = await getGoogleAccessToken()
-
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{ startDate, endDate }],
-          metrics: [
-            { name: 'sessions' },
-            { name: 'totalUsers' },
-            { name: 'screenPageViews' },
-            { name: 'conversions' },
-            { name: 'bounceRate' },
-            { name: 'averageSessionDuration' },
-          ],
-        }),
-      }
-    )
-
-    if (!response.ok) {
-      const err = await response.text()
-      console.error('[GA4] Error:', response.status, err)
-      throw new Error(`GA4 API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const values = data.rows?.[0]?.metricValues || []
-
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'screenPageViews' },
+        { name: 'conversions' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+      ],
+    })
+    const v = data.rows?.[0]?.metricValues || []
     return {
-      sessions: Number(values[0]?.value || 0),
-      users: Number(values[1]?.value || 0),
-      pageviews: Number(values[2]?.value || 0),
-      conversions: Number(values[3]?.value || 0),
-      bounceRate: Number(values[4]?.value || 0),
-      avgSessionDuration: Number(values[5]?.value || 0),
+      sessions: Number(v[0]?.value || 0),
+      users: Number(v[1]?.value || 0),
+      pageviews: Number(v[2]?.value || 0),
+      conversions: Number(v[3]?.value || 0),
+      bounceRate: Number(v[4]?.value || 0),
+      avgSessionDuration: Number(v[5]?.value || 0),
     }
   } catch (error) {
     console.error('[GA4] Error:', error)
@@ -78,37 +98,14 @@ export async function fetchGA4DailyData(
   startDate: string,
   endDate: string
 ): Promise<WebMetricsByDay[]> {
-  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) {
-    return []
-  }
-
+  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return []
   try {
-    const token = await getGoogleAccessToken()
-
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{ startDate, endDate }],
-          dimensions: [{ name: 'date' }],
-          metrics: [
-            { name: 'sessions' },
-            { name: 'conversions' },
-          ],
-          orderBys: [{ dimension: { dimensionName: 'date' } }],
-        }),
-      }
-    )
-
-    if (!response.ok) return []
-
-    const data = await response.json()
-
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'sessions' }, { name: 'conversions' }],
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+    })
     return (data.rows || []).map((row: any) => ({
       date: row.dimensionValues[0].value.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
       sessions: Number(row.metricValues[0]?.value || 0),
@@ -119,53 +116,140 @@ export async function fetchGA4DailyData(
   }
 }
 
-// Obtener paginas de conversion (gracias, thank-you, etc)
 export async function fetchGA4ConversionPages(
   propertyId: string,
   startDate: string,
   endDate: string
 ): Promise<Array<{ page: string; conversions: number; sessions: number }>> {
   if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return []
-
   try {
-    const token = await getGoogleAccessToken()
-
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [{ name: 'sessions' }, { name: 'conversions' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'pagePath',
+          stringFilter: { matchType: 'CONTAINS', value: 'gracias' },
         },
-        body: JSON.stringify({
-          dateRanges: [{ startDate, endDate }],
-          dimensions: [{ name: 'pagePath' }],
-          metrics: [
-            { name: 'sessions' },
-            { name: 'conversions' },
-          ],
-          dimensionFilter: {
-            filter: {
-              fieldName: 'pagePath',
-              stringFilter: {
-                matchType: 'CONTAINS',
-                value: 'gracias',
-              },
-            },
-          },
-        }),
-      }
-    )
-
-    if (!response.ok) return []
-
-    const data = await response.json()
-
+      },
+    })
     return (data.rows || []).map((row: any) => ({
       page: row.dimensionValues[0].value,
       sessions: Number(row.metricValues[0]?.value || 0),
       conversions: Number(row.metricValues[1]?.value || 0),
+    }))
+  } catch {
+    return []
+  }
+}
+
+// ═══ asesorias.copywriters.cl — filtrado por hostname ═══
+
+export async function fetchAsesoriasMetrics(
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<WebMetrics> {
+  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return MOCK_WEB_METRICS
+  try {
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'screenPageViews' },
+        { name: 'conversions' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+      ],
+      ...ASESORIAS_FILTER,
+    })
+    const v = data.rows?.[0]?.metricValues || []
+    return {
+      sessions: Number(v[0]?.value || 0),
+      users: Number(v[1]?.value || 0),
+      pageviews: Number(v[2]?.value || 0),
+      conversions: Number(v[3]?.value || 0),
+      bounceRate: Number(v[4]?.value || 0),
+      avgSessionDuration: Number(v[5]?.value || 0),
+    }
+  } catch (error) {
+    console.error('[GA4 Asesorias] Metrics error:', error)
+    return MOCK_WEB_METRICS
+  }
+}
+
+export async function fetchAsesoriasDaily(
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<WebMetricsByDay[]> {
+  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return []
+  try {
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'sessions' }, { name: 'conversions' }],
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+      ...ASESORIAS_FILTER,
+    })
+    return (data.rows || []).map((row: any) => ({
+      date: row.dimensionValues[0].value.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
+      sessions: Number(row.metricValues[0]?.value || 0),
+      conversions: Number(row.metricValues[1]?.value || 0),
+    }))
+  } catch {
+    return []
+  }
+}
+
+const EXCLUDED_EVENTS = new Set(['session_start', 'user_engagement', 'first_visit'])
+
+export async function fetchAsesoriasEvents(
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<AsesoriasEvent[]> {
+  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return []
+  try {
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      limit: 20,
+      ...ASESORIAS_FILTER,
+    })
+    return (data.rows || [])
+      .map((row: any) => ({
+        eventName: row.dimensionValues[0].value,
+        eventCount: Number(row.metricValues[0]?.value || 0),
+        users: Number(row.metricValues[1]?.value || 0),
+      }))
+      .filter((e: AsesoriasEvent) => !EXCLUDED_EVENTS.has(e.eventName))
+  } catch {
+    return []
+  }
+}
+
+export async function fetchAsesoriasHeatmap(
+  propertyId: string,
+  startDate: string,
+  endDate: string
+): Promise<HeatmapCell[]> {
+  if (!process.env.GOOGLE_ADS_REFRESH_TOKEN) return []
+  try {
+    const data = await ga4Request(propertyId, {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'dayOfWeek' }, { name: 'hour' }],
+      metrics: [{ name: 'sessions' }],
+      ...ASESORIAS_FILTER,
+    })
+    return (data.rows || []).map((row: any) => ({
+      day: Number(row.dimensionValues[0].value),
+      hour: Number(row.dimensionValues[1].value),
+      sessions: Number(row.metricValues[0]?.value || 0),
     }))
   } catch {
     return []

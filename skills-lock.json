@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "paid-media-dashboard": {
+      "source": "local",
+      "sourceType": "local",
+      "description": "Next.js 16 dashboard for Google Ads + Meta Ads — CopyLab, CLP formatting, Vercel"
+    }
+  }
+}

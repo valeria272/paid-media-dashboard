@@ -1,6 +1,14 @@
 {
   "crons": [
     {
+      "path": "/api/pacing",
+      "schedule": "0 13 * * 1"
+    },
+    {
+      "path": "/api/pacing",
+      "schedule": "0 14 * * 4"
+    },
+    {
       "path": "/api/cron/weekly?type=optimization",
       "schedule": "0 13 * * 2"
     },

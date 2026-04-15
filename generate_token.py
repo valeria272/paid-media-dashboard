@@ -10,7 +10,7 @@ CREDENTIALS_FILE = "/Users/Vale/Desktop/COPYLAB PROJECTS/ASISTENTE PERSONAL/cred
 SCOPES = [
     "https://www.googleapis.com/auth/adwords",
     "https://www.googleapis.com/auth/analytics.readonly",
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
 ]
 
 

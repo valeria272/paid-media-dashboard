@@ -49,10 +49,13 @@ export async function fetchGoogleAds(startDate?: string, endDate?: string): Prom
       ORDER BY metrics.cost_micros DESC
     `)
 
-    const statusMap: Record<string, CampaignStatus> = {
+    const statusMap: Record<string | number, CampaignStatus> = {
       ENABLED: 'active',
       PAUSED: 'paused',
       REMOVED: 'ended',
+      2: 'active',   // google-ads-api devuelve enums numéricos
+      3: 'paused',
+      4: 'ended',
     }
 
     return campaigns.map((row: any): CampaignMetrics => ({

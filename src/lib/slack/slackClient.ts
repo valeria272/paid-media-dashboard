@@ -21,7 +21,8 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 export async function sendSlackMessage(
   blocks: any[],
   text: string,
-  channel?: string
+  channel?: string,
+  attachments?: any[]
 ): Promise<boolean> {
   if (!BOT_TOKEN) {
     console.warn('[Slack] Sin SLACK_BOT_TOKEN — mensaje no enviado')
@@ -42,7 +43,7 @@ export async function sendSlackMessage(
           Authorization: `Bearer ${BOT_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ channel: target, text, blocks }),
+        body: JSON.stringify({ channel: target, text, blocks, ...(attachments ? { attachments } : {}) }),
       }, TIMEOUT_MS)
 
       const data = await response.json()

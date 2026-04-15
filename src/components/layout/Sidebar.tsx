@@ -12,7 +12,10 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: '📊' },
   { href: '/campaigns', label: 'Campanas', icon: '📋' },
+  { href: '/pacing', label: 'Registro costos', icon: '📈' },
   { href: '/approvals', label: 'Aprobaciones', icon: '✅' },
+  { href: '/social', label: 'Redes · CopyWriters', icon: '📱' },
+  { href: '/social/mas-center', label: 'Redes · Mas Center', icon: '🏢' },
 ]
 
 export function Sidebar({ criticalAlerts = 0, pendingApprovals = 0 }: SidebarProps) {
@@ -27,7 +30,7 @@ export function Sidebar({ criticalAlerts = 0, pendingApprovals = 0 }: SidebarPro
 
       <nav className="flex-1 space-y-1">
         {NAV_ITEMS.map(item => {
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/social' && pathname.startsWith(item.href))
           return (
             <Link
               key={item.href}
@@ -57,7 +60,14 @@ export function Sidebar({ criticalAlerts = 0, pendingApprovals = 0 }: SidebarPro
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
           >
             <span>🔗</span>
-            <span>Vista cliente</span>
+            <span>Cliente · CopyWriters</span>
+          </Link>
+          <Link
+            href="/social/mas-center/cliente"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <span>🔗</span>
+            <span>Cliente · Mas Center</span>
           </Link>
         </div>
       </nav>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchGoogleAds } from '@/lib/fetchers/googleAds'
 import { fetchMetaAds } from '@/lib/fetchers/metaAds'
 import { detectAlerts } from '@/lib/alerts/detectAlerts'
+import { Alert } from '@/lib/types'
 import { fetchBudgets, detectBudgetAlerts } from '@/lib/fetchers/budgetSheet'
 import { buildSummary } from '@/lib/mock/dashboardMock'
 import { sendAlertBatchToSlack } from '@/lib/slack/sendAlert'
@@ -75,18 +76,19 @@ export async function GET(request: NextRequest) {
 
   const spendHistory = await generateDailySpend(currentStart, currentEnd)
 
-  // Combinar alertas de performance + presupuesto
-  const allCritical = [
-    ...alerts.filter(a => a.severity === 'critical'),
-    ...budgetAlerts.filter(a => a.severity === 'critical'),
-  ]
-  if (allCritical.length > 0) {
-    sendAlertBatchToSlack(allCritical.map(a => ({
-      id: '', severity: a.severity, platform: 'channel' in a ? (a as any).channel : '',
-      campaignName: 'campaignName' in a ? (a as any).campaignName : '',
-      message: a.message, metric: 'budget', currentValue: 0, expectedValue: 0,
+  // Combinar alertas de performance + presupuesto (critical + warning + opportunity)
+  const allAlerts: Alert[] = [
+    ...alerts,
+    ...budgetAlerts.map(a => ({
+      id: '', severity: a.severity, platform: a.channel,
+      campaignName: a.campaignName,
+      message: a.message, metric: 'budget' as const,
+      currentValue: a.currentSpend, expectedValue: a.budgetApproved,
       detectedAt: new Date().toISOString(),
-    }))).catch(err => console.error('[Slack] Error:', err))
+    })),
+  ]
+  if (allAlerts.length > 0) {
+    sendAlertBatchToSlack(allAlerts).catch(err => console.error('[Slack] Error:', err))
   }
 
   return NextResponse.json({

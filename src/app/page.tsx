@@ -12,6 +12,7 @@ import { AlertBanner } from '@/components/alerts/AlertBanner'
 import { AlertList } from '@/components/alerts/AlertList'
 import { PlatformTable } from '@/components/metrics/PlatformTable'
 import { SpendChart } from '@/components/charts/SpendChart'
+import { AsesoriasAnalytics } from '@/components/analytics/AsesoriasAnalytics'
 import { formatCLP, formatPercent, formatNumber, formatVariation } from '@/lib/format/currency'
 
 export default function DashboardPage() {
@@ -112,6 +113,9 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* Asesorías — asesorias.copywriters.cl */}
+          <AsesoriasAnalytics />
 
           {/* Presupuestos aprobados vs gasto real */}
           {data?.budgets && data.budgets.length > 0 && (
