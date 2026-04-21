@@ -50,15 +50,21 @@ const MONTH_NAMES: Record<string, number> = {
 
 // ─── Helper: obtener Access Token para Google APIs ───────────────────────────
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(refreshTokenEnvKey = 'GOOGLE_ADS_REFRESH_TOKEN'): Promise<string> {
   const { google } = await import('googleapis')
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_ADS_CLIENT_ID,
     process.env.GOOGLE_ADS_CLIENT_SECRET,
   )
-  oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN })
+  oauth2Client.setCredentials({ refresh_token: process.env[refreshTokenEnvKey] })
   const { token } = await oauth2Client.getAccessToken()
   return token || ''
+}
+
+// Token con scope spreadsheets (escritura) — usa SHEETS_REFRESH_TOKEN si está disponible
+async function getSheetsToken(): Promise<string> {
+  const key = process.env.SHEETS_REFRESH_TOKEN ? 'SHEETS_REFRESH_TOKEN' : 'GOOGLE_ADS_REFRESH_TOKEN'
+  return getAccessToken(key)
 }
 
 // ─── Leer planilla completa ───────────────────────────────────────────────────
@@ -74,7 +80,7 @@ export async function readPacingRows(targetMonth?: string, targetWeek?: number, 
     return []
   }
 
-  const token = await getAccessToken()
+  const token = await getSheetsToken()
 
   // Obtener lista de pestañas
   const metaRes = await fetch(
@@ -265,7 +271,7 @@ export async function writeWeeklySpend(
   const sheetId = process.env.PACING_SHEET_ID?.trim()
   if (!sheetId) return { written: 0, skipped: updates.length }
 
-  const token = await getAccessToken()
+  const token = await getSheetsToken()
   const valueRanges = updates.map(({ row, spend }) => {
     // Convertir índice de columna a letra (0=A, 1=B, ..., 6=G, ...)
     const colLetter = indexToColLetter(row.weekColIndex)
